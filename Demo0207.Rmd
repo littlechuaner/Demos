@@ -1,0 +1,50 @@
+---
+title: "Demo0207"
+author: "Zero"
+date: "2/7/2019"
+output: word_document
+---
+a). The cutoff value is $-15.80$, the R codes for calculation is shown below.
+```{R}
+data1 <- read.table("/Users/chuan/Desktop/WorkingOn/data1.txt")
+data2 <- read.table("/Users/chuan/Desktop/WorkingOn/data2.txt")
+n1 <- nrow(data1)
+n2 <- nrow(data2)
+data1.means <- apply(data1, 2, mean)
+data2.means <- apply(data2, 2, mean)
+w1 <- (n1 - 1) * var(data1)
+w2 <- (n2 - 1) * var(data2)
+sp1 <- 1 / (n1 + n2 - 2) * (w1 + w2)
+cutoff <- .5 * (data1.means - data2.means) %*% solve(sp1) %*% (data1.means + data2.means)
+cutoff
+```
+b).The classification table is given below.
+```{R}
+prediction <- apply(rbind(data1,data2), 1, function(y) {
+  z <- (data1.means - data2.means) %*% solve(sp1) %*% y } )
+cutoff <- rep(cutoff,39)
+group <- ifelse(prediction > cutoff, 1, 2)
+actual <- c(rep(1,19),rep(2,20))
+table(actual, group, dnn = c('Actual Group','Predicted Group'))
+```
+c).According to the classification table below, when k equals or is above 3, the error rate is relatively low and stable.
+```{R}
+require(class)
+group_pred <- knn(train = rbind(data1,data2),test = rbind(data1,data2), cl = actual, k = 3)
+table(actual, group_pred, dnn = c('Actual Group','Predicted Group'))
+##Try different k
+group_pred <- knn(train = rbind(data1,data2),test = rbind(data1,data2), cl = actual, k = 4)
+table(actual, group_pred, dnn = c('Actual Group','Predicted Group'))
+##
+group_pred <- knn(train = rbind(data1,data2),test = rbind(data1,data2), cl = actual, k = 5)
+table(actual, group_pred, dnn = c('Actual Group','Predicted Group'))
+##
+group_pred <- knn(train = rbind(data1,data2),test = rbind(data1,data2), cl = actual, k = 2)
+table(actual, group_pred, dnn = c('Actual Group','Predicted Group'))
+```
+c).According to the results, 3rd vector in data1 should be assigned to group 1, and the 3rd vector in data2 should be assigned to group 2.
+```{R}
+prediction <- apply(rbind(data1[3,],data2[3,]), 1, function(y) {
+  z <- (data1.means - data2.means) %*% solve(sp1) %*% y } )
+prediction
+```

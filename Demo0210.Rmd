@@ -1,0 +1,157 @@
+---
+title: "Homework2"
+author: "Zero"
+date: "2/10/2019"
+output: word_document
+---
+1.a) The summary of variables is shown below.
+```{R}
+library(tidyverse)
+library(FNN)
+library(caret)
+personal_loan <- read.csv('/Users/chuan/Desktop/WorkingOn/personal_loan.csv')
+temp <- personal_loan
+temp$securities_account <- as.factor(temp$securities_account)
+temp$cd_account <- as.factor(temp$cd_account )
+temp$online <- as.factor(temp$online)
+temp$credit_card <- as.factor(temp$credit_card)
+summary(temp)
+```
+b).The model fitting result is shown below.
+```{R}
+personal_loan[c(1:5,7)] <- scale(personal_loan[c(1:5,7)], center = TRUE, scale = TRUE)
+#One-hot encoding
+temp2 <- cbind(select_if(personal_loan,is.numeric),as.data.frame(model.matrix(~education-1,personal_loan)))
+temp2 <- cbind.data.frame(temp2,personal_loan[12])
+#
+temp2 = temp2 %>%
+  mutate(id = 1:nrow(temp2))
+#
+set.seed(30)
+train = temp2 %>%
+  sample_frac(0.6)
+validation = temp2 %>%
+  slice(-train$id)
+#
+validation = validation %>%
+  mutate(loan_prediction = knn(train[1:13], validation[1:13],train$personal_loan, 3))
+#
+result <- validation %>%
+  select(personal_loan, loan_prediction)
+head(result,20)
+```
+
+c).From the confusion matrix, we can find that the accuracy is 0.956, the sensitivity is 0.6055, the specificity is 0.9989.
+```{R}
+confusionMatrix(validation$loan_prediction, validation$personal_loan)
+```
+
+d).From the table, we can find that the model fits best when k equals to 4.
+```{R}
+for (k in 1:20){
+  results = knn(train[1:13], validation[1:13],train$personal_loan, k)  # predict the output in validation table for different k
+  
+  a = confusionMatrix(results,validation$personal_loan)$overall[1]    # retrieve the accuracy measure from the confusion matrix and assign to a
+  
+  print(paste("The accuracy for k = ", k, "is", a)) # print the value of accuracy for each k
+ }
+```
+
+e).The new observation gives a classification of accept.
+```{R}
+newobs <- data.frame(age = 40,
+            experience = 10,
+            income = 84,
+            family = 2,
+            ccavg = 2,
+            educationadvanced = 0,
+            educartiongraduate = 1,
+            educatrionundergrad = 0,
+            mortgage = 0,
+            securities_account = 0, 
+            cd_account = 0,
+            online = 1,
+            credit_card = 1)
+#
+knn(train[1:13], newobs,train$personal_loan, 4)
+```
+
+2.a)The summary of variables is shown below.
+```{R}
+Tayko <- read.csv('/Users/chuan/Desktop/WorkingOn/Tayko.csv')
+Tayko <- Tayko %>%
+  mutate(web = as.factor(web),
+         gender = as.factor(gender),
+         address_res = as.factor(address_res),
+         address_us = as.factor(address_us)
+         )
+summary(Tayko)
+```
+
+b).The result shows if a person has bought something from the web, the volatility of his spending will be larger, and female tends to spend with larger standard deviation than male.
+```{R}
+Tayko %>%
+  group_by(web) %>%
+  summarise(std_income = sd(spending)) %>%
+  ungroup()
+#
+Tayko %>%
+  group_by(gender) %>%
+  summarise(std_income = sd(spending)) %>%
+  ungroup()
+```
+
+c).From the result, we can find that only frequency and residential address has significant impact on spending, the overall $R^2$ is 0.55, meaning that the explaination power of the model is 55%.
+```{R}
+Tayko = Tayko %>%
+  mutate(id = 1:nrow(Tayko))
+#
+set.seed(30)
+train = Tayko %>%
+  sample_frac(0.7)
+validation = Tayko %>%
+  slice(-train$id)
+#
+mlr = lm(spending~., train[1:7])
+summary(mlr)
+```
+
+d).All accuracy measurements are shown below, MPE and MAPE does not give useful imformation because some value of dependent variable is 0, leading to infinite value of calculation.
+```{R}
+validation = validation %>%
+  mutate(spending_prediction = predict(mlr, validation[1:7]))
+names(validation)
+#
+error = validation$spending - validation$spending_prediction
+error_by_y = error/validation$spending
+# mean error (ME)
+mean(error) 
+# mean absolute error (MAE)
+mean(abs(error))
+# mean percentage error (MPE)
+mean(error_by_y) * 100
+# mean absolute percentage error (MAPE)
+mean(abs(error_by_y)) * 100
+# root mean square error (RMSE)
+sqrt(mean(error^2))
+```
+
+e). The 10-fold validation gives a mean RMSE of 129,63, which is smaller than what we have in *c)*, again the MAPE measure does not give useful imformation.
+```{R}
+#10-Fold CV
+folds <- createFolds(Tayko$id,k = 10)
+RMSE <- rep(0,10)
+MAPE <- rep(0,10)
+for(i in 1:10){
+  fold_test <- Tayko[folds[[i]],]
+  fold_train <- Tayko[-folds[[i]],]
+  fold_mlr <- lm(spending~.,data = fold_train)
+  fold_predict <- predict(fold_mlr,type = 'response',newdata = fold_test)
+  error = fold_test$spending - fold_predict
+  error_by_y = error/fold_test$spending
+  RMSE[i] = sqrt(mean(error^2))
+  MAPE[i] = mean(abs(error_by_y)) * 100
+}
+print(mean(RMSE))
+print(mean(MAPE))
+```

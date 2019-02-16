@@ -1,0 +1,173 @@
+---
+title: "Demo0131"
+author: "Zero"
+date: "1/31/2019"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+#Data generating function.
+```{R}
+data_generate <- function(n,N){
+  m1 = matrix(rnorm(csize*p), csize, p)*s + cbind( rep(1,csize), rep(0,csize));
+  m0 = matrix(rnorm(csize*p), csize, p)*s + cbind( rep(0,csize), rep(1,csize));
+  id1 = sample(1:csize, n, replace = TRUE);
+  id0 = sample(1:csize, n, replace = TRUE);
+  s = sqrt(1/5);                            
+  traindata = matrix(rnorm(2*n*p), 2*n, p)*s + rbind(m1[id1,], m0[id0,]);
+  Ytrain = factor(c(rep(1,n), rep(0,n)));
+  id1 = sample(1:csize, N, replace = TRUE);
+  id0 = sample(1:csize, N, replace = TRUE); 
+  testdata = matrix(rnorm(2*N*p), 2*N, p)*s + 
+             rbind(m1[id1,], m0[id0,]);
+  Ytest = factor(c(rep(1,N), rep(0,N)));
+  return(list('traindata' = traindata,
+              'testdata' = testdata,
+              'Ytrain' = Ytrain,
+              'Ytest' = Ytest,
+              'm1' = m1,
+              'm0' = m0
+  ))
+}
+```
+#Linear regression function.
+```{R}
+LR <- function(datalist,cutoff_value){
+  cutoff_value = cutoff_value
+  Linear_Reg = lm(as.numeric(datalist$'Ytrain') - 1 ~ datalist$'traindata')
+  Ytrain_pred_LR = as.numeric(Linear_Reg$fitted > cutoff_value)
+  Ytest_pred_LR = Linear_Reg$coef[1] + Linear_Reg$coef[2] * datalist$'testdata'[,1] + 
+                  Linear_Reg$coef[3] * datalist$'testdata'[,2]
+  Ytest_pred_LR = as.numeric(Ytest_pred_LR > cutoff_value)
+  train_err_LR = sum(datalist$'Ytrain' !=  Ytrain_pred_LR) / (2*n);
+  test_err_LR = sum(datalist$'Ytest' !=  Ytest_pred_LR) / (2*N)
+  return(list(
+    'train_error' = train_err_LR,
+    'test_error' = test_err_LR
+  ))
+}
+```
+#Quadratic regression fuction.
+```{R}
+QR <- function(datalist,cutoff_value){
+  cutoff_value = cutoff_value
+  Quadra_Reg = lm(as.numeric(datalist$'Ytrain') - 1 ~ datalist$'traindata' + I(datalist$'traindata'[, 1]^2)  )
+  Ytrain_pred_QR = as.numeric(Quadra_Reg$fitted > cutoff_value)
+  Ytest_pred_QR = Quadra_Reg$coef[1] + Quadra_Reg$coef[2] * datalist$'testdata'[,1] + 
+                  Quadra_Reg$coef[3] * datalist$'testdata'[,2] + Quadra_Reg$coef[4] * datalist$'testdata'[, 1]^2
+  Ytest_pred_QR = as.numeric(Ytest_pred_QR > cutoff_value)
+  train_err_QR = sum(datalist$'Ytrain' !=  Ytrain_pred_QR) / (2*n);
+  test_err_QR = sum(datalist$'Ytest' !=  Ytest_pred_QR) / (2*N)
+  return(list(
+    'train_error' = train_err_QR,
+    'test_error' = test_err_QR
+  ))
+}
+```
+#kNN classification function with cross validation.
+```{R}
+kNN <- function(datalist,cv){
+  require(class)
+  #kNN
+  myk = seq(from = 1,to = 10,by=1)
+  m = length(myk);
+  train_err_knn = rep(0 , m);
+  test_err_knn = rep(0 , m);
+  for( j in 1:m){
+    Ytrain_pred_knn = knn(datalist$'traindata', datalist$'traindata', datalist$'Ytrain', k = myk[j])
+    train_err_knn[j] = sum(datalist$'Ytrain' != Ytrain_pred_knn)/(2*n)
+    Ytest_pred_knn = knn(datalist$'testdata', datalist$'testdata', datalist$'Ytest',k = myk[j])
+    test_err_knn[j] = sum(datalist$'Ytest' != Ytest_pred_knn)/(2*N)
+  }
+  k <- which.min(test_err_knn[-1]) + 1
+  #Randomly shuffle the data
+  df_xy = cbind.data.frame(datalist$'Ytrain' , datalist$'traindata')
+  names(df_xy) <- c("y","x1","x2")
+  df_xy = df_xy[sample(nrow(df_xy)),]
+  cv = cv
+  #Create 10 equally size folds
+  folds = cut(seq(1,nrow(df_xy)),breaks = cv,labels = FALSE)
+  test_err_cv = rep(0, cv);
+  train_err_cv = rep(0, cv);
+  #Perform 10 fold cross validation
+  for(i in 1:cv){
+    #Segement your data by fold using the which() function 
+    testIndexes = which(folds==i,arr.ind=TRUE)
+    validData = df_xy[testIndexes,2:3 ]
+    valid_Y   = df_xy[testIndexes,1 ]
+    trainData = df_xy[-testIndexes,2:3 ]
+    train_Y   = df_xy[-testIndexes,1 ]
+    #Use the valid and train data partitions  
+    Ytrain_pred_knn = knn(trainData, validData, train_Y,k = 2)
+    train_err_cv[i] = sum(train_Y != Ytrain_pred_knn)/(2*n)
+    df_test_x = data.frame(datalist$'testdata')
+    Ytest_pred_knncv = knn(trainData, df_test_x, train_Y,k = 2)
+    test_err_cv[i] = sum(datalist$'Ytest' != Ytest_pred_knncv)/(2*N)
+  }
+  test_err_knncv = mean(test_err_cv)
+  train_err_cv = mean(train_err_cv)
+  return(list(
+    'train_error' = train_err_cv,
+    'test_error' = test_err_knncv,
+    'k-value' = k
+  ))
+}
+```
+#Bayes rule classification function.
+```{R}
+Bayes <- function(datalist){
+  mixnorm=function(x){
+    ## return the density ratio for a point x, where each 
+   sum(exp(-apply((t(datalist$'m1') - x)^2, 2, sum)*5/2))/sum(exp(-apply((t(datalist$'m0') - x)^2, 2, sum)*5/2))
+    }
+  Ytrain_pred_Bayes = apply(datalist$'traindata', 1, mixnorm)
+  Ytrain_pred_Bayes = as.numeric(Ytrain_pred_Bayes > 1);
+  Ytest_pred_Bayes = apply(datalist$'testdata', 1, mixnorm)
+  Ytest_pred_Bayes = as.numeric(Ytest_pred_Bayes > 1);
+  #Bayes rule error; 
+  train_err_Bayes = sum(datalist$'Ytrain' !=  Ytrain_pred_Bayes) / (2*n)
+  test_err_Bayes = sum(datalist$'Ytest' !=  Ytest_pred_Bayes) / (2*N)
+  return(list(
+    'train_error' = train_err_Bayes,
+    'test_error' = test_err_Bayes
+  ))
+}
+```
+#Simulation.
+```{R}
+T = 20
+no.method = 4
+Test.err = matrix(0, T, no.method); 
+colnames(Test.err) = c('LinearReg', 'QuadReg', 'kNN', 'Bayes') 
+Train.err=Test.err
+k.vals = rep(0, T)
+#parameter
+csize = 10;        
+p = 2;      
+s = 1;
+n = 200;
+N = 10000;
+set.seed(6235)
+for(t in 1:T){
+  datalist <- data_generate(n,N)
+  LinearReg.Train <- LR(datalist,0.5)$'train_error'
+  QuadReg.Train <- QR(datalist,0.5)$'train_error'
+  kNN.Train <- kNN(datalist,10)$'train_error'
+  Bayes.Train <- Bayes(datalist)$'train_error'
+  Train.err[t,] <- c(LinearReg.Train,QuadReg.Train,kNN.Train,Bayes.Train)
+  ###
+  LinearReg.Test <- LR(datalist,0.5)$'test_error'
+  QuadReg.Test <- QR(datalist,0.5)$'test_error'
+  kNN.Test <- kNN(datalist,10)$'test_error'
+  Bayes.Test <- Bayes(datalist)$'test_error'
+  Test.err[t,] <- c(LinearReg.Test,QuadReg.Test,kNN.Test,Bayes.Test)
+  k.vals[t] <- kNN(datalist,10)$'k-value'
+}
+####
+Train.err <- as.data.frame(Train.err)
+boxplot(Train.err, main = 'Boxplot for Train Error')
+Test.err <- as.data.frame(Test.err)
+boxplot(Test.err, main = 'Boxplot for Test Error')
+summary(k.vals)
+```

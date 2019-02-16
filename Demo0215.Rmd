@@ -1,0 +1,70 @@
+---
+title: "Demo0215"
+author: "Zero"
+date: "2/15/2019"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+---
+11.9
+a).the canonical correlation matrix is given below.
+```{R}
+data <- read.csv('/Users/chuan/Desktop/WorkingOn/11.9.csv')
+data.std <- sweep(data, 2, sqrt(apply(data,2,var)), FUN = "/")
+y.meas <- data.std[,1:2]
+x.meas <- data.std[,3:4]
+R11 <- cor(y.meas)
+R22 <- cor(x.meas)
+R12 <- c(cor(y.meas[,1], x.meas[,1]), cor(y.meas[,1],    x.meas[,2]),cor(y.meas[,2], x.meas[,1]), cor(y.meas[,2], x.meas[,2]))
+R12 <- matrix(R12, ncol=ncol(R22), byrow = T) 
+R21 <- t(R12)
+# Finding the E1 and E2 matrices:
+E1 <-solve(R11) %*% R12 %*% solve(R22) %*% R21
+E2 <-solve(R22) %*% R21 %*% solve(R11) %*% R12
+eigen(E1)
+eigen(E2)
+canon.corr <-sqrt(eigen(E1)$values)
+canon.corr
+#Validation
+ca1 <- cancor(y.meas, x.meas)
+ca1$'cor'
+```
+
+b).the standardized variates are calculated below with visualization.
+```{R}
+# Plotting the first set of canonical variables:
+u1 <-as.matrix(data.std[,1:2]) %*% as.matrix(eigen(E1)$vectors[,1])
+v1 <-as.matrix(data.std[,3:4]) %*% as.matrix(eigen(E2)$vectors[,1])
+plot(u1,v1)
+cor(u1,v1)
+# Plotting the second set of canonical variables:
+u2 <-as.matrix(data.std[,1:2]) %*% as.matrix(eigen(E1)$vectors[,2])
+v2 <-as.matrix(data.std[,3:4]) %*% as.matrix(eigen(E2)$vectors[,2])
+plot(u2,v2)
+cor(u2,v2)
+```
+
+c).from the test result, we can find that the $p-value$ for head length between two samples' correlation is 0.000, and for head breath the $p-value$ is 0.806, so under the confidence level of 95%, we conclude that only the correlation for head length is significant. 
+```{R}
+corcoef.test<-function(r, n, p, q, alpha=0.1)
+{
+m<-length(r); Q<-rep(0, m); lambda <- 1; chi<-rep(0, m)
+for (k in m:1)
+{
+lambda<-lambda*(1-r[k]^2);
+Q[k]<- -log(lambda)
+}
+s<-0; i<-m
+for (k in 1:m)
+{
+Q[k]<- (n-k+1-1/2*(p+q+3)+s)*Q[k]
+chi[k]<-1-pchisq(Q[k], (p-k+1)*(q-k+1))
+i <- k-1
+s<-s+1/r[k]^2
+}
+chi
+}
+corcoef_test <- corcoef.test(r=ca1$cor,n=24,p=2,q=2)
+corcoef_test
+```

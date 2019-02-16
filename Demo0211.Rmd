@@ -1,0 +1,152 @@
+---
+title: "Demo0210"
+author: "Zero"
+date: "2/10/2019"
+output: word_document
+---
+Problem 4.
+The null hypothesis is that the mean of three methods are the same. The Wilks’ Test statistic in this case is 0.872, Pillai Statistic in this case is 0.127，Lawley-Hotelling statistic in this case is 0.145, and Roy’s largest root test in this case is 0.125. From the result, we can find that the Wilks' lambda statistic is not close to zero and Lawley-Hotelling statistic is not very large.  
+So we can conclude the null hypothesis, which is the mean of the four reagents are not different.
+```{R}
+library(tidyverse)
+library(psych)
+S <- read.table('/Users/chuan/Desktop/WorkingOn/data_problem4.txt')
+S1 <- S[1:20,]
+S2 <- S[21:40,]
+S3 <- S[41:60,]
+S4 <- S[61:80,]
+S1.bar <- colMeans(S1)
+S2.bar <- colMeans(S2)
+S3.bar <- colMeans(S3)
+S4.bar <- colMeans(S4)
+S.all.bar <- (S1.bar+S2.bar+S3.bar+S4.bar)/4
+S1.bar.diff <- S1.bar - S.all.bar 
+S2.bar.diff <- S2.bar - S.all.bar 
+S3.bar.diff <- S3.bar - S.all.bar
+S4.bar.diff <- S4.bar - S.all.bar
+H <- nrow(S1) * unname(S1.bar.diff %*% t(S1.bar.diff) + 
+S2.bar.diff %*% t(S2.bar.diff) + 
+S3.bar.diff %*% t(S3.bar.diff) +
+S4.bar.diff %*% t(S4.bar.diff))
+compute.within.matrix <- function(data, mean) { 
+   ret <- matrix(as.numeric(0), nrow = 3, ncol = 3)
+   for (i in 1:20) {
+   diff <- as.numeric(unname(data[i,] - mean))
+   ret <- ret + diff %*% t(diff) }
+   return(ret) }
+E <- compute.within.matrix(S1, S1.bar) + 
+ compute.within.matrix(S2, S2.bar) + 
+ compute.within.matrix(S3, S3.bar) +
+ compute.within.matrix(S4, S4.bar)
+Lambda <- det(E) / det(E + H)
+V.s <- tr(solve(E + H) %*% H)
+U.s <- tr(solve(E) %*% H)
+lambda.1 <- eigen(solve(E) %*% H)$values[1] 
+theta <- lambda.1 / (1 + lambda.1)
+cbind(Lambda,V.s,U.s,theta)
+```
+
+Problem 5.
+The covariance and correlation matrix are given below, the mean vector for z is 108, standard deviation is 34.2.
+```{R}
+data <- data.frame(student = c(1:5),
+                   math = c(90,90,60,60,30),
+                   english = c(60,90,60,60,30),
+                   art = c(90,30,60,90,30))
+s <- cov(data[2:4])
+r <- cor(data[2:4])
+#
+s
+r
+#
+z <- -2*data[2] + 3*data[3] + data[4]
+colMeans(z)
+sd(unlist(z))
+```
+
+Problem 6.
+The cutoff point is -15.8, the classification table is given below and misclassification rate is 0.0256.
+```{R}
+beetle <- read.table('/Users/chuan/Desktop/WorkingOn/data_problem6&7.txt')
+data1 <- beetle[1:19,]
+data2 <- beetle[20:39,]
+n1 <- nrow(data1)
+n2 <- nrow(data2)
+data1.means <- apply(data1, 2, mean)
+data2.means <- apply(data2, 2, mean)
+w1 <- (n1 - 1) * var(data1)
+w2 <- (n2 - 1) * var(data2)
+sp1 <- 1 / (n1 + n2 - 2) * (w1 + w2)
+cutoff <- .5 * (data1.means - data2.means) %*% solve(sp1) %*% (data1.means + data2.means)
+cutoff
+#Classification table.
+require(class)
+actual <- c(rep(1,19),rep(2,20))
+group_pred <- knn(train = rbind(data1,data2),test = rbind(data1,data2), cl = actual, k = 3)
+table(actual, group_pred, dnn = c('Actual Group','Predicted Group'))
+#misclassification rate
+(table(actual, group_pred, dnn = c('Actual Group','Predicted Group'))[1,2] + 
+  table(actual, group_pred, dnn = c('Actual Group','Predicted Group'))[2,1])/nrow(beetle)
+```
+
+Problem 7.
+The model fitting is given below, the prediction for new data is oleracea, misclassification rate is 0.025.
+```{R}
+library(MASS)
+beetle <- read.table('/Users/chuan/Desktop/WorkingOn/data_problem6&7.txt')
+beetle <- cbind(beetle,actual)
+lda <- MASS:::lda(actual ~ .,
+          data = beetle,
+          prior = c(1,1)/2,
+          CV = F)
+group <- MASS:::predict.lda(lda,beetle[1:4],method = 'plug-in')$class
+tab <- table(group,beetle$actual)
+conCV <- rbind(tab[1, ]/sum(tab[1, ]), tab[2, ]/sum(tab[2, ]))
+dimnames(conCV) <- list(Actual = c('oleracea','caduorum'),
+   "Predicted (cv)" = c('oleracea','caduorum'))
+print(round(conCV, 3))
+misclassrate <- 1-mean(diag(round(conCV, 3)))
+misclassrate
+newdata <- data.frame(V1=189,V2=245,V3=138,V4=164)
+plda = MASS:::predict.lda(lda , newdata = newdata)$class
+plda
+```
+
+Problem 8.
+The matrix and mean vector are shown below.  
+```{R}
+data <- read.table('/Users/chuan/Desktop/WorkingOn/data_problem8.txt')
+data1 <- data[1:30,]
+data2 <- data[31:60,]
+cov(data1,data2)
+cor(data1,data2)
+mean_vec <- rbind(colMeans(data1),colMeans(data2))
+mean_vec
+```
+
+Problem 9.
+he null hypothesis is that the mean measurements vector of the Consumers Goods and the mean vector of the Producer Goods are the same.The Lawley-Hotelling statistic in this case is 1.041,
+indicating that we should reject the null hypothesis and conclude the mean measurements vector of the Consumers Goods and the mean vector of the Producer Goods are different.
+```{R}
+data <- read.csv('/Users/chuan/Desktop/WorkingOn/Problem 9.csv',header = F)
+data <- data[1:4]
+S1 <- data[1:9,]
+S2 <- data[10:19,]
+S1.bar <- colMeans(S1)
+S2.bar <- colMeans(S2)
+S.all.bar <- (S1.bar+S2.bar)/2
+S1.bar.diff <- S1.bar - S.all.bar 
+S2.bar.diff <- S2.bar - S.all.bar
+compute.within.matrix <- function(data, mean) { 
+   ret <- matrix(as.numeric(0), nrow = 4, ncol = 4)
+   for (i in 1:9) {
+   diff <- as.numeric(unname(data[i,] - mean))
+   ret <- ret + diff %*% t(diff) }
+   return(ret) }
+H <- nrow(S1) * unname(S1.bar.diff %*% t(S1.bar.diff) + 
+ S2.bar.diff %*% t(S2.bar.diff))
+E <- compute.within.matrix(S1, S1.bar) + 
+ compute.within.matrix(S2, S2.bar)
+U.s <- tr(solve(E) %*% H)
+U.s
+```

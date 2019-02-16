@@ -1,0 +1,125 @@
+---
+title: 'xx'
+author: "Zero"
+date: "2/12/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+loading data.
+```{R}
+library(dplyr)
+shooting <- read.csv('/Users/chuan/Desktop/WorkingOn/shootings-2018.csv')
+```
+Overview.
+```{R}
+#How many shootings occurred?
+nrow(shooting)
+#How many lives were lost?
+sum(shooting$num_killed)
+#Which cities that were most impacted(with the largest number of injured)?
+shooting %>%
+  group_by(city) %>%
+  summarise(injured = sum(num_injured)) %>%
+  ungroup() %>%
+  arrange(desc(injured))
+#Which city has the largest average death number?
+shooting %>%
+  group_by(city) %>%
+  summarise(avedeath = mean(num_killed)) %>%
+  ungroup() %>%
+  arrange(desc(avedeath))
+#Which state has the largest death number?
+shooting %>%
+  group_by(state) %>%
+  summarise(death = sum(num_killed)) %>%
+  ungroup() %>%
+  arrange(desc(death))
+```
+Summary Table.
+```{R}
+#Summary
+shooting %>%
+group_by(state) %>%
+  summarize( survival_rate = sum(num_injured) / sum(num_killed + num_injured),
+    total_killed = sum(num_killed),
+    total_injured = sum(num_injured),
+    num_shootings = length(city)) %>%
+  arrange(desc(num_shootings))
+```
+Geography plot on the data.
+```{R}
+#Geography plot.
+library(plotly)
+library(maps)
+us <- map_data("state")
+ggplot() +
+  geom_polygon(
+    data = us, aes(x = long, y = lat, group = group),
+    fill = "yellow", alpha = 0.2) +
+  geom_point(
+    data = shooting,
+    aes(
+      x = long, y = lat, size = num_killed,
+      color = num_injured)
+  ) +
+  labs(title = 'Geography Plot on numbers of killed & injured',
+    color = "Number Injured", size = "Number Killed" ) +
+  theme(axis.title = element_blank()) +
+  theme(axis.text = element_blank()) + 
+  theme(axis.ticks = element_blank()) +
+  theme(panel.grid = element_blank())
+```
+Boxplot on the data.
+```{R}
+#Boxplot of survival rate based on state.
+incident_survival <- shooting %>%
+ mutate(survival_rate = (num_injured /
+                          (num_killed + num_injured)))
+ggplot(
+  incident_survival,
+  aes(x = state, y = survival_rate, fill = state)
+) +
+  geom_boxplot() +
+  labs(x = "States", y = "Survival Rate", fill = "State", title = 'Survival Rate Boxplot') +
+  theme(
+    axis.text.x = element_text(
+      angle = -90,
+      vjust = 0.4,
+      hjust = 1
+    ),
+    axis.text.y = element_text(
+      angle = 90,
+      vjust = 0.4,
+      hjust = 1
+    )
+  )
+```
+Bar plot on California data.
+```{R}
+#Barplot of people impacted in California
+California <- shooting %>%
+  filter(state == 'California')
+California <- California %>%
+  mutate(num_impact = num_killed + num_injured)
+ggplot(
+  California,
+  aes(x = city, y = num_impact, fill = city)
+) +
+  geom_bar(stat = "identity", alpha = 0.7) +
+  labs(x = "Cities", y = "Number of impacted", fill = "City", title = 'Number of people impacted in California') +
+  theme(
+    axis.text.x = element_text(
+      angle = -90,
+      vjust = 0.4,
+      hjust = 1
+    ),
+    axis.text.y = element_text(
+      angle = 90,
+      vjust = 0.4,
+      hjust = 1
+    )
+  )
+```

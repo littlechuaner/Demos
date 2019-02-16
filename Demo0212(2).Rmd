@@ -1,0 +1,142 @@
+---
+title: "HW#3"
+author: "Zero"
+date: "2/12/2019"
+output: pdf_document
+---
+##Part A
+###Problem 1.
+The data used is the GDP growth rate from 1961 to 2018 sourced from *World Bank*. I will focus on *Argentina, Australia, China, Canada, Greece, UK, France, Finland and Brazil*.
+```{R}
+library(tidyverse)
+GDP <- read.csv('/Users/chuan/Desktop/WorkingOn/GDPdata.csv')
+GDP <- GDP %>%
+  select(Year, Argentina, Australia, China, 
+         Canada, Greece, United.Kingdom, 
+         France, Finland, Brazil)
+head(GDP,10)
+```
+###Problem 2.
+```{R}
+#Correlation Plot.
+library(ggcorrplot)
+corr <- round(cor(GDP[2:9]),3)
+ggcorrplot(corr, hc.order = T, outline.color = "white")
+#Boxplot.
+ggplot(stack(GDP[2:9]), aes(x = ind, y = values ,fill = ind))+
+  geom_boxplot() +
+  labs(x = "Countries", y = "GDP Growth Rate", fill = "ind", title = 'GDP Growth Rate Boxplot') +
+  theme(
+    axis.text.x = element_text(
+      angle = -90,
+      vjust = 0.4,
+      hjust = 1
+    ),
+    axis.text.y = element_text(
+      angle = 90,
+      vjust = 0.4,
+      hjust = 1
+    )
+  )
+#Growth Rate Time Series Plot.
+temp <- stack(GDP[2:9])
+year <- rep(1961:2017, times = 8)
+temp <- cbind(temp,year)
+ggplot(data = temp, aes(x = year, y = values, fill = ind)) +
+  geom_area() + 
+  labs(x = "Year", y = "GDP Growth Rate", fill = "ind", title = 'GDP Growth Rate Timeseries')
+#Barplot on average growth rate.
+temp <- temp %>%
+  group_by(ind) %>%
+  summarise(ave = mean(values)) %>%
+  ungroup() %>%
+  arrange(desc(ave))
+ggplot(
+  temp,
+  aes(x = ind, y = ave, fill = ind)
+) +
+  geom_bar(stat = "identity", alpha = 0.7) +
+  labs(x = "Countries", y = "Average Growth Rate", fill = "Countries", title = 'Barplot of average growth rate') +
+  theme(
+    axis.text.x = element_text(
+      angle = -90,
+      vjust = 0.4,
+      hjust = 1
+    ),
+    axis.text.y = element_text(
+      angle = 90,
+      vjust = 0.4,
+      hjust = 1
+    )
+  )
+```
+##Part B
+###Problem 3.
+```{R}
+library(dplyr)
+library(ggplot2)
+library(dbplyr)
+library(RSQLite)
+dbpath <- paste0("/Users/chuan/Desktop/WorkingOn/dblp.db") 
+con <- dbConnect(SQLite(), dbname=dbpath)
+dblp_main <- tbl(con, "general") 
+dblp_authors <- tbl(con, "authors")
+dblp_authors <- dblp_authors %>%
+  filter(prob >= 0.95, gender == 'M' | gender == 'F' )
+dblp_authors %>%
+ left_join(dblp_main) %>%
+ group_by(gender, year) %>%
+ summarise(count = n()) %>% 
+ collect() %>%
+ ggplot() +
+ geom_col(aes(x=year, y=count, fill=gender)) + 
+ labs(x = "Year", y = "Number of Paper", fill = "Gender", title = 'Number of paper based on gender')
+```
+###Problem 4.
+```{R}
+auth_year <- dblp_authors %>%
+             left_join(dblp_main) %>%
+             group_by(year) %>%
+             summarise(total = n())
+genauth_year <- dblp_authors %>%
+             left_join(dblp_main) %>%
+             group_by(gender, year) %>% 
+             summarise(gencount = n())
+left_join(genauth_year, auth_year) %>% 
+  ggplot(aes(x=year,
+              y=gencount,
+            fill=gender)) +
+  geom_bar(position = 'fill',stat = 'identity')
+```
+###Problem 4.
+```{R}
+library(tidyr)
+dblp_authors$k <- as.factor(dblp_authors$k)
+dblp_authors %>%
+  filter(gender == 'M' & pos == 0 | gender =='F' & pos == 0) %>%
+  group_by(gender,k) %>%
+  summarise(number = n_distinct(k)) %>%
+  collect() %>%
+  ggplot(aes(x = gender, y = number , fill = gender)) + 
+  geom_bar(stat = "identity", alpha = 0.7) + 
+  labs(x = "Gender", y = "Number of Paper", fill = "Gender", title = 'Number of paper with first author')
+#######
+temp <- dblp_authors %>%
+  group_by(k) %>%
+  mutate(male = length(gender == 'M'),
+         female = length(gender == 'F'))
+temp1 <- temp %>%
+  filter(female == 0) %>%
+  mutate(type = 'a')
+temp2 <- temp %>%
+  filter(female == 0) %>%
+  mutate(type = 'b')
+temp <- rbind(temp1,temp2)
+temp$type <- as.factor(temp$type)
+temp %>%
+  group_by(type) %>%
+  summarise(number = n_distinct(k)) %>%
+  collect() %>%
+  ggplot(aes(x = type, y = number , fill = type)) + 
+  geom_bar(stat = "identity", alpha = 0.7)
+```
