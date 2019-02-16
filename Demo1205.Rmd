@@ -1,0 +1,150 @@
+---
+title: "Demo1205"
+output:
+  html_document:
+    df_print: paged
+---
+Load the data.
+```{R}
+library(ggplot2)
+setwd(getwd())
+norwegianfire <- read.csv("norwegianfire.csv")
+names(norwegianfire) <- c("loss","year")
+str(norwegianfire)
+norwegianfire <- norwegianfire[norwegianfire$year == "88",]
+loss <- as.numeric(unlist(norwegianfire[1]))
+```
+
+Find out outliers.
+```{R}
+summary(loss)
+quantile(loss, 0.99)
+```
+
+Delete outliers.
+```{R}
+norwegianfire <- subset.data.frame(norwegianfire, loss<= 26000)
+loss <- as.numeric(unlist(norwegianfire[1]))
+```
+
+```{R}
+ggplot(norwegianfire)+
+  geom_histogram(aes(loss),bins = 40)
+```
+
+1.Estimating normal parameters using method of moments.
+```{R}
+###mu
+n <- length(loss)
+m1 <- mean(loss)
+###sigma
+m2 <- sum(loss^2)/n
+s2 <- m2 - m1^2
+s <- sqrt(s2)
+###
+paste("The MM estimate for mu is", m1)
+paste("The MM estimate for sigma is", s)
+```
+
+2.plot normal density.
+```{r}
+hist(loss, freq=FALSE, breaks = 50, xlim=c(0, 6000))
+x <- seq(0, 6000, by = 1)
+y <- dnorm(x,m1,s)
+points(x, y, col="red")
+```
+
+3.Estimating gamma parameters using method of moments.
+```{R}
+lambda <- m1/(m2-m1^2)
+alpha <- lambda*m1
+beta <- 1/lambda
+###
+paste("The MM estimate for alpha is", alpha)
+paste("The MM estimate for beta is", beta)
+```
+
+4.Plot.
+```{R}
+hist(loss, freq=FALSE, breaks = 50, xlim=c(0, 6000))
+x <- seq(0, 6000, by = 1)
+y2 <- dgamma(x, alpha ,scale = beta)
+points(x, y2, col="red")
+```
+
+5.Plot
+```{R}
+hist(loss, freq=FALSE, breaks = 50, xlim=c(0, 6000))
+points(x, y2, col="red")
+points(x, y, col="blue")
+```
+
+6.MLE for normal.
+```{R}
+###For normal
+LL <- function(theta,x){
+  mu <- theta[1]
+  sigma2 <- theta[2]
+  n <- length(x)
+  loglik <- -0.5*n*log(2*pi)-0.5*n*log(sigma2)-(1/(2*sigma2))*sum((x-mu)**2) - n*log(1-pnorm(500,mu,sigma2))
+  return (-loglik)
+}
+####
+res <- optim(c(2000,40000), LL ,x = loss)
+a1 <- res$par[1]
+b1 <- res$par[2]
+####
+paste("The MLE estimate for normal distribution on mu is", a1)
+paste("The MLE estimate for normal distribution on sigma is", sqrt(b1))
+```
+7.MLE for lognormal
+```{R}
+LL2 <- function(theta,x){
+  mu <- theta[1]
+  sigma2 <- theta[2]
+  n <- length(x)
+  loglik <- -0.5*n*log(2*pi)-0.5*n*log(sigma2)-(1/(2*sigma2))*sum((x-mu)**2) - n*log(1-pnorm(log(500),mu,sigma2))
+  return (-loglik)
+}
+####
+res <- optim(c(10,5), LL2 ,x = log(loss))
+a2 <- res$par[1]
+b2 <- res$par[2]
+####
+paste("The MLE estimate for lognormal distribution on mu is", a2)
+paste("The MLE estimate for lognormal distribution on sigma is", sqrt(b2))
+```
+
+8.MLE for gamma
+```{R}
+###For gamma
+LL3 <- function(theta, sx, slogx, n){
+   r <- theta[1]  
+   lambda <- theta[2] 
+   loglik <- - n * log(gamma(r)) - n*r*log(1/lambda) + (r - 1)* slogx - lambda * sx
+              - n*log(1-pgamma(500, r,1/lambda))
+   return(-loglik)
+}
+####
+res <- optim(c(1,1), LL3, sx = sum(loss), slogx = sum(log(loss)), n = length(loss)) 
+####
+a3 <- res$par[1]
+b3 <- res$par[2]
+####
+paste("The MLE estimate for gamma distribution on gamma is", a3)
+paste("The MLE estimate for gamma distribution on lambda is", b3)
+###
+```
+
+9.Plot
+```{R}
+hist(loss, freq=FALSE, breaks = 50, xlim=c(0, 6000))
+####
+x <- seq(0, 6000, by = 1)
+y3 <- dnorm(x, a1, sqrt(b1))
+y4 <- dgamma(x, a3 ,scale = 1/b3)
+y5 <- dlnorm(x, a2, sqrt(b2))
+points(x, y3, col="red")
+points(x, y4, col="blue")
+points(x, y5, col="yellow")
+```

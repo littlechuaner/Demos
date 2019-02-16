@@ -1,0 +1,166 @@
+---
+title: "Coursework Part II"
+output: pdf_document
+---
+Q1.First use R to load data, in order to make R to read the data more efficiently, I first delete all the introduction in the original dataset, which is the first 5 rows, then I combine three sheets data into a single sheet, formatting some columns like 'Cargo Size' and 'DWT' as number to prevent un necessary trouble of loading data. After all the adjustments, I save the data as csv file because R can not read excel data directly. After fetching my current working directory, I load the data with all the column names. The codes are as follows.
+```{R}
+wd <- getwd()
+setwd(wd)
+data <- read.csv("CourseworkDatFile.csv")
+```
+
+i.After loading the data, I use 'str()' function to get a glance of the related columns, which is  'year of built'. 'vessel type' and 'cargo size'. The codes and results are as follows.
+```{R}
+str(c(data[4],data[5],data[7]))
+```
+
+From the results we find that 'year of built' and 'vessel type' are typed as factors, intuitively 'year of built' should be a type of date, but considering in this case, the year of vessels built is more like a classification to distinguish the vessels into different-age group, so I think this variable can stay as factor. As for 'Cargo Size', it is a numeric type because I first format it in the original data set, so there is no need to make any change. In a word, all the three variables can stay what they already are.
+
+ii.In R, we can use 'is.NA()' to check if there is missing values in a data frame but in this case there will be no need to run this code, it is obviously that there are N/A values in the data, in order to exclude all the missing values, we can simply apply 'omit.na()' function to do this, after the adjustment, the data has reduced to 1900, compared to 2350 of the original observations, there is nearly 20% off in the number, but I think the number left is sufficient enough to find the characteristic of the whole data. I then saved this new data locally as a csv file.
+```{R}
+data <- na.omit(data)
+write.csv(data, file="/Users/chuan/Desktop/WorkingOn/newdata1.csv")
+```
+
+
+Q2.To get the time series data of vessel fixtures and total cargo capacity, we need to first rearrange the data according to the date that the vessel was fixed, in the local csv file, date is properly formatted and we can easily rearrange the data by sorting the 15th column, which is 'Loading Date', then the next step is a bit trouble some, we need to first split the whole time period into 24 sections, each one represents a week. This can be achieved by referring to the calendar, and then we sort out the data specifically during the related time period, then next step is to extract the data from the set.
+
+The procedure is simple, just extract relevant rows in the data set and define the sub data  as the week number, the codes are as follows.
+```{R}
+newdata <- read.csv("newdata.csv")
+week23 <- newdata[1:16,]
+week24 <- newdata[17:88,]
+week25 <- newdata[89:159,]
+week26 <- newdata[160:268,]
+week27 <- newdata[269:361,]
+week28 <- newdata[362:462,]
+week29 <- newdata[463:559,]
+week30 <- newdata[560:683,]
+week31 <- newdata[684:774,]
+week32 <- newdata[775:858,]
+week33 <- newdata[859:953,]
+week34 <- newdata[954:1058,]
+week35 <- newdata[1059:1183,]
+week36 <- newdata[1184:1273,]
+week37 <- newdata[1274:1377,]
+week38 <- newdata[1378:1468,]
+week39 <- newdata[1469:1572,]
+week40 <- newdata[1573:1660,]
+week41 <- newdata[1661:1742,]
+week42 <- newdata[1743:1840,]
+week43 <- newdata[1841:1882,]
+week44 <- newdata[1883:1897,]
+week45 <- newdata[1898:1899,]
+week46 <- newdata[1900,]
+```
+
+Next step is to calculate fixtures and total cargo capacity, the fixture is just the number of rows in each week dataset, this can be achieved by using 'nrow()' function, and total cargo capacity is simply the sum of the 'DMT' column of each week dataset. Then combine the numbers as a new vector and name it as the related variable. Codes are as follows. After getting the data, combine it and using 'ts()' function to make it as a time series, I use 'lubricate' package to help construct time data. Then save the data locally as a csv file. Codes are as follows.
+```{R}
+fixture <- c(nrow(week23),nrow(week24),nrow(week25),nrow(week26),
+             nrow(week27),nrow(week28),nrow(week29),nrow(week30),
+             nrow(week31),nrow(week32),nrow(week33),nrow(week34),
+             nrow(week35),nrow(week36),nrow(week37),nrow(week38),
+             nrow(week39),nrow(week40),nrow(week41),nrow(week42),
+             nrow(week43),nrow(week44),nrow(week45),nrow(week46))
+totalcapacity <- c(sum(week23[7]),sum(week24[7]),sum(week25[7]),
+                   sum(week26[7]),sum(week27[7]),sum(week28[7]),
+                   sum(week29[7]),sum(week30[7]),sum(week31[7]),
+                   sum(week32[7]),sum(week33[7]),sum(week34[7]),
+                   sum(week35[7]),sum(week36[7]),sum(week37[7]),
+                   sum(week38[7]),sum(week39[7]),sum(week40[7]),
+                   sum(week41[7]),sum(week42[7]),sum(week43[7]),
+                   sum(week44[7]),sum(week45[7]),sum(week46[7]))
+
+ts <- cbind(fixture,totalcapacity)
+
+library(lubridate)
+newts <- ts(ts, 
+   freq=365.25/7, 
+   start=decimal_date(ymd("2018-06-04")))
+
+write.csv(newts, file="/Users/chuan/Desktop/WorkingOn/timeseries.csv")
+```
+
+Q3.Using the base fuction 'ts.plot' to construct time series plot of fixture and total cargo capacity, codes and the plots are shown below. From the plot I find that both variables show the very similar pattern, which makes sense because more vessels mean more capacity, there is possible that these two variables are highly positively correlated.
+
+Apart from the similarity, the data also shows a potential seasonality. The problem is the lack of data in the head and tail month, so the plot does not show good pattern for all the time, I guess it is because those data have many missing values, but generally, the data in the middle period does show a good pattern.
+
+```{R}
+ts.plot(fixture, xlab="WeekPast", ylab="VesselsFixed",main="VesselFixtures Plot")
+ts.plot(totalcapacity, xlab="WeekPast", ylab="TotalCapacity",main="TotalCapacity Plot")
+```
+
+Q4. To identify the largest number, we can just apply 'which.max' function to return a location of the maximum number, from the results, we get 13 for fixtures, which means in week 36, fixture has reached to its peak; as for total cargo capacity, it is 7, indicating the relevant week is 30. The result is consistent with the plots we have in question 3.
+```{R}
+which.max(fixture)
+which.max(totalcapacity)
+```
+
+Q5.To find the frequency of year built and vessel type, I use package 'epiDisplay', which gives us a good visilization of the construction of data.
+```{r}
+library(epiDisplay)
+tab1(unlist(newdata[6]), sort.group = "decreasing", cum.percent = FALSE, main = "VesselType")
+tab1(unlist(newdata[5]), sort.group = "decreasing", cum.percent = FALSE, main = "Year of Built")
+```
+From the result, we can find that vessel types are basically OverPanamax, Handymax and Large Capesize, the rest types only consist a little portion of the data. As for 'Year Built', the most frequent year is 2012, with 2016 in the behind, indicating that the vessels are most 2~4 years old, those built in 2018 or 20 years ago do not show much frequency, this is also very intuitive because very new vessels do not need to be fixed and the very old ones are mostly not on the run.
+
+Q6.As I said in the Q3, both time series data show a pattern of seasonality in the middle time period, ignoring the head and tail data, the series also show a good pattern of stationary, so ARMA model can be used to analyse the data.
+
+A very important procedure in modeling time series data is to find the autocorrelation function and partial autocorrelation function of the data, this can be obtained by base function, codes are as follows.
+
+```{R}
+acf(fixture)
+pacf(fixture)
+acf(totalcapacity)
+pacf(totalcapacity)
+```
+
+From the results above, I find that both data show an autocorrelation cutoff when lag order is 2, and a partial autocorrelation cutoff in the lag order of 1. The autocorrelation can be used to find the right order of MA model, and partial autocorrelation is used to find the order of AR model. So from the plots, my conclusion is that we can use ARMA(1,2) to fit both time series.
+
+Q7.As I found in question 6, the right order for applying a MA model for the time series is 2, so I use a MA(2) to do the model fitting. The base function 'ARIMA' is a good tool to help me fit the model. Codes are as follows.
+
+```{R}
+fit1 <- arima(fixture,order = c(0,0,2))
+fit2 <- arima(totalcapacity,order = c(0,0,2))
+fit1
+fit2
+```
+We can quickly analyse the fit results by defining the significance of coefficients, the rule is very simple, using coefficient estimate to divide by the standard error, this gives us the t-statistic of the coefficient, if t is larger than 2, we can generally conclude the coefficient is statistically significant. In this case, obviously all the t-statistic is larger than 2, so the model does fit well for both data.
+
+After the model fitting, we need to predict the series. This can be done by a package named 'TSPred' which is specifically useful in predicting time series data. The grey area shows the confidence level for predictions. The codes are as follows.
+
+```{R}
+library(TSPred)
+plotarimapred(fixture, fit1, xlim=c(1,35), range.percent = 0.2, xreg = NULL,ylab = "Fixtures", xlab = "Month", main = NULL)
+plotarimapred(totalcapacity, fit2, xlim=c(1,35), range.percent = 0.2, xreg = NULL,ylab = "TotalCapacity", xlab = "Month", main = NULL)
+```
+
+From the results we find that there are disconnect points in prediction, I think this is because the lack of data in the tail time period, so I cut some data in the tail and construct another prediction plot, the new plot gives a much smoothier prediction. The codes and plots are shown below.
+```{r}
+fixture1 <- fixture[1:20]
+totalcapacity1 <- totalcapacity[1:20]
+fit3 <- arima(fixture1,order = c(0,0,2))
+fit4 <- arima(totalcapacity1,order = c(0,0,2))
+plotarimapred(fixture1, fit3, xlim=c(1,35), range.percent = 0.1, xreg = NULL,ylab = "Fixtures", xlab = "Month", main = NULL)
+plotarimapred(totalcapacity1, fit4, xlim=c(1,35), range.percent = 0.2, xreg = NULL,ylab = "TotalCapacity", xlab = "Month", main = NULL)
+```
+
+Then I use naive prediction to do another plot of prediction. Similarly, I first use full data to do the prediction, this procedure can be done by another powerful package named 'forecast', codes and plots are shown below.
+```{R}
+library(forecast)
+f.naive<- naive(fixture)
+autoplot(f.naive)
+t.naive<- naive(totalcapacity)
+autoplot(t.naive)
+```
+
+As we see in the plot there is really serious problem because the predictions are sometimes below zero, which is not possible in life. The main contribution to this problem is the lack of data in the tail of time series, so the prediction is largely effected by it, to justify the problem, again I delete the last 5 number of time series and do another naive prediction plot. The new plots and codes are shown below.
+
+```{R}
+f.naive<- naive(fixture1)
+autoplot(f.naive)
+t.naive<- naive(totalcapacity1)
+autoplot(t.naive)
+```
+
+From the plots we can find this is a better prediction for this case, so generally speaking, if the tail data is not sufficient enough, we should not use naive prediction because this is too risky, we should use MA or ARMA instead to get further information from the past data, another way to fix this is to delete some time series data, but for this case, deleting much data is not a good way to do. If it is possible, we can generate some data points to get a more reasonable time series data, but from the very case my conclusion is to use simple MA prediction other than naive.
