@@ -6,15 +6,27 @@ attach(BHPSw18indresp)
 #data transformation
 levels(rlfsato)
 rlfsato.num <-as.numeric(rlfsato)
-rlfsato.num [rlfsato.num<=10]<-NA
+rlfsato.num [rlfsato.num<7]<-NA
+rlfsato.num [rlfsato.num ==7|rlfsato.num ==8|rlfsato.num ==9]<-1
+rlfsato.num [rlfsato.num ==10|rlfsato.num ==11]<-2
+rlfsato.num [rlfsato.num ==12|rlfsato.num ==13]<-3
 table(rlfsato.num)
 satisfaction<-as.factor(rlfsato.num)
 levels(satisfaction)<-c('Not satisfied at all','dissatistied','Completely satisfied')
-table(ssatisfaction)
+table(satisfaction)
 #
 rpayu1 <- as.character(rpayu)
 income <- as.numeric(rpayu1)
 table(income)
+#
+levels(rghql)
+rghql.num <-as.numeric(rghql)
+rghql.num [rghql.num<6]<-NA
+rghql.num [rghql.num>=8 & rghql.num<=9]<-8
+table(rghql.num)
+happiness<-as.factor(rghql.num)
+levels(happiness)<-c('More than usual','Same as usual','Less than usual')
+table(happiness)
 #
 levels(rlocserb)
 rlocserb.num <-as.numeric(rlocserb)
@@ -55,10 +67,23 @@ sex<-as.factor(rsex.num)
 levels(sex)<-c('male','female')
 table(sex)
 #
-satisfaction1 = ordered(satisfaction, levels=c('Not satisfied at all','dissatistied','Completely satisfied'))
+levels(rmlchng)
+rmlchng.num <-as.numeric(rmlchng)
+table(rmlchng.num)
+rmlchng.num[rmlchng.num<6]<-NA
+rmlchng.num[rmlchng.num==6]<-1
+rmlchng.num [rmlchng.num==7]<-0
+change<-as.factor(rmlchng.num)
+levels(change)<-c('Status changed','Not changed')
+table(change)
 #
+satisfaction1 = ordered(satisfaction, levels=c('Not satisfied at all','dissatistied','Completely satisfied'))
+happiness1 =ordered(happiness, levels=c('More than usual','Same as usual','Less than usual'))
+#
+myDF <- data.frame(satisfaction1, income, marriage)
+myDF <- na.omit(myDF)
 library(MASS)
-fit.pom = polr(satisfactory1 ~ income + sex, data=BHPSw18indresp)
+fit.pom = polr(satisfaction1 ~ income + marriage, data=myDF,Hess = T)
 summary(fit.pom)
 coef(fit.pom)
 library(arm)
@@ -73,21 +98,21 @@ p.pom = function(X, fit){
 }
 par(mfrow=c(1,2), cex=0.8)
 #Sex
-plot(c(1,40000), c(0,1), type='n', main='Male',
+plot(c(1,40000), c(0,1), type='n', main='Unmarried',
      xlab='income', ylab='prob') 
 curve(p.pom(cbind(x,0), fit.pom)[,1], add=TRUE, lty=1)
 curve(p.pom(cbind(x,0), fit.pom)[,2], add=TRUE, lty=2) 
 curve(p.pom(cbind(x,0), fit.pom)[,3], add=TRUE, lty=3)
 legend('topleft', lty=1:3, c('Not satisfied at all','Dissatistied','Completely satisfied'),bty='n')  
 
-plot(c(1,40000), c(0,1), type='n', main='Female',
+plot(c(1,40000), c(0,1), type='n', main='Married',
      xlab='income', ylab='prob') 
 curve(p.pom(cbind(x,1), fit.pom)[,1], add=TRUE, lty=1)
 curve(p.pom(cbind(x,1), fit.pom)[,2], add=TRUE, lty=2) 
 curve(p.pom(cbind(x,1), fit.pom)[,3], add=TRUE, lty=3)
 legend('topleft', lty=1:3, c('Not satisfied at all','Dissatistied','Completely satisfied'),bty='n')
 #
-myDF <- data.frame(satisfaction1, income, sex)
+myDF <- data.frame(satisfaction1, income, marriage)
 myDF <- na.omit(myDF)
 x.lo <- myDF
 x.lo$income = min(myDF$income)
