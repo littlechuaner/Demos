@@ -1,0 +1,20 @@
+---
+title: "Untitled"
+author: "Zero"
+date: "3/7/2019"
+output: word_document
+---
+The first two loadings are shown below.
+```{R}
+data <- read.csv("/Users/chuan/Desktop/WorkingOn/Table6.9.csv")
+library(psych)
+#calculate the correlation matrix
+corMat  <-cor(data)
+#display the correlation matrix
+corMat
+#use fa()to conduct an oblique principal-axis exploratory factor analysis
+#save the solution to an R variable
+solution <-fa(r = corMat, nfactors = 2, rotate = "oblimin", fm = "pa")
+#display the solution output
+solution
+```

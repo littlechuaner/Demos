@@ -1,0 +1,29 @@
+---
+title: "Homework"
+author: "Zero"
+date: "2/20/2019"
+output: word_document
+---
+a).the convariance and correlation matrix with egienvectors and eigenvalues are shown below.
+```{r}
+df <- read.csv("/Users/chuan/Desktop/WorkingOn/Table36.csv")
+#Use R
+df.scaled <- scale(df, center = TRUE, scale = TRUE)
+# 1. Correlation matrix
+df.cor <- cor(df.scaled)
+round(df.cor, 2)
+# 2. Calculate eigenvectors/eigenvalues
+df.eig <- eigen(df.cor)
+df.eig
+#Use S
+# 1. Covariance matrix
+df.cov <- cov(df.scaled)
+# 2. Calculate eigenvectors/eigenvalues
+eigen(df.cov)
+```
+b). the proportion for each compornant is shown below.
+```{R}
+df.eig$values/(sum(df.eig$values))
+```
+
+c).I will include the first three compornants for two reasons: first, these compornants explain more than 90% of the total variance; second, under the methology of Jolliffe, only these compornants have a eigenvalue larger than 0.7.

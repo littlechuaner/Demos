@@ -1,0 +1,88 @@
+---
+title: "Demo0317"
+author: "Zero"
+date: "3/17/2019"
+output: word_document
+---
+P1. The eigen values and the proportion for each compornant are shown below. From the results, we can see that including any two factors can not achieve the total proportion of 90%, so we decide to include all three factors.
+```{R}
+# 1. Covariance matrix
+df.cov <- cbind(c(5,0,0),c(0,9,0),c(0,0,8))
+# 2. Calculate eigenvectors/eigenvalues
+df.eig <- eigen(df.cov)
+df.eig
+df.eig$values/(sum(df.eig$values))
+```
+P2.The principle loadings for three factors are shown below.
+```{R}
+#Correlation matrix
+corMat <- cbind(c(1,0.44,0.41,0.29,0.33,0.25),
+                c(0.44,1,0.35,0.35,0.32,0.33),
+                c(0.41,0.35,1,0.16,0.19,0.18),
+                c(0.29,0.35,0.16,1,0.59,0.47),
+                c(0.35,0.25,0.19,0.59,1,0.46),
+                c(0.25,0.33,0.18,0.47,0.46,1))
+library(psych)
+#use fa()to conduct an oblique principal-axis exploratory factor analysis
+#save the solution to an R variable
+solution <-fa(r = corMat, nfactors = 3, rotate = "oblimin", fm = "pa")
+#display the solution output
+solution
+```
+P3.The chioce of factors depend on the proportion they explain to the total variances. From the exploratory factor analysis, we find that the first three factors explain nearly 100% of the total variance, from the plot of PCA, the first three factors can explain more than 80% of the total variance, so in total, we will choose three factors.
+```{R}
+library(FactoMineR)
+library(factoextra)
+data <- read.csv('/Users/chuan/Desktop/WorkingOn/Problem3.csv',header = F)
+data <- data[2:6]
+#calculate the correlation matrix
+corMat <- cor(data)
+#display the correlation matrix
+corMat
+#use fa()to conduct an oblique principal-axis exploratory factor analysis
+#save the solution to an R variable
+solution <- fa(r = corMat, nfactors = 3, rotate = "oblimin", fm = "pa")
+#display the solution output
+solution
+res.pca <- PCA(data, graph = FALSE)
+#plot
+fviz_eig(res.pca, addlabels = TRUE, ylim = c(0, 80))
+```
+P4.The canonical correlation and p-values of the test are given below. From the test result, we can find that both the p-values are larger than 10%, so the conclusion is the canonical correlation between X and Y are not significant.
+```{R}
+data <- read.csv('/Users/chuan/Desktop/WorkingOn/Problem4.csv',header = F)
+data <- scale(data)
+X <- data[,1:3]
+Y <- data[,4:5]
+#obtain canonical correlations
+cc <- cancor(X, Y)
+cc
+#test
+corcoef.test<-function(r, n, p, q, alpha=0.1)
+{
+m<-length(r); Q<-rep(0, m); lambda <- 1; chi<-rep(0, m)
+for (k in m:1)
+{
+lambda<-lambda*(1-r[k]^2);
+Q[k]<- -log(lambda)
+}
+s<-0; i<-m
+for (k in 1:m)
+{
+Q[k]<- (n-k+1-1/2*(p+q+3)+s)*Q[k]
+chi[k]<-1-pchisq(Q[k], (p-k+1)*(q-k+1))
+i <- k-1
+s<-s+1/r[k]^2
+}
+chi
+}
+corcoef_test <- corcoef.test(r=cc$cor,n=25,p=3,q=2)
+corcoef_test
+```
+
+P5. The plot and syntax are given below.
+```{R}
+HS.model <- ' visual =~ x1 + x2  
+              textual =~ x3 + x4 + x5 + x6
+              speed =~ x7 + x8 + x9 '
+```

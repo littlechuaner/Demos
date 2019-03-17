@@ -1,0 +1,136 @@
+---
+title: "HW"
+author: "Zero"
+date: "3/1/2019"
+output: html_document
+---
+3.
+```{R}
+rm(list = ls())
+library(scales)
+library(tidyverse)
+load('/Users/chuan/Desktop/WorkingOn/31721-0001-Data.rda')
+transman <- da31721.0001 %>%
+  filter(Q5 == "(1) Male" & Q6 == "(2) Woman")
+transwoman <- da31721.0001 %>%
+  filter(Q5 == "(2) Female" & Q6 == "(1) Man")
+nonbinary <- da31721.0001 %>%
+  filter(Q6 == "(4) Androgynous" | Q6 == "(6) Gender Queer")
+temp <- data.frame('type' = c('transman','transwoman','nonbinary'),
+                   'number' = c(nrow(transman),nrow(transwoman),nrow(nonbinary))) 
+ggplot(temp,aes(x = type, y = number)) + 
+  geom_bar(stat = "identity", aes(fill = type)) + 
+  scale_fill_brewer(palette="Dark2")
+temp <- transman %>%
+  filter(Q88 == "(1) Yes")
+n1 <- nrow(temp)
+n2 <- nrow(transman) - n1
+temp <- transwoman %>%
+  filter(Q88 == "(1) Yes")
+n3 <- nrow(temp)
+n4 <- nrow(transwoman) - n3
+temp <- nonbinary %>%
+  filter(Q88 == "(1) Yes")
+n5 <- nrow(temp)
+n6 <- nrow(nonbinary) - n5
+temp <- data.frame('gender' =   c('transman','transwoman',
+                                  'nonbinary','transman',
+                                  'transwoman','nonbinary'),
+                   'number' = c(n1,n3,n5,
+                                n2,n4,n6),
+                   'type' = c('homeless','homeless',
+                              'homeless','non-homeless',
+                              'non-homeless','non-homeless'),
+                   "proportion" = c(n1/(n1+n2),
+                                    n2/(n1+n2),
+                                    n3/(n3+n4),
+                                    n4/(n3+n5),
+                                    n5/(n5+n6),
+                                    n6/(n5+n6)))
+temp$proportion <- round(temp$proportion,2)
+ggplot(temp, aes(x=gender, y=number, fill=type)) +
+  geom_bar(stat="identity",position=position_dodge())+
+  scale_fill_brewer(palette="Paired")+
+  theme_minimal() + 
+  scale_y_continuous(labels=percent_format()) + 
+  labs(y = "Percent", fill="Ever been homeless")
+```
+
+4.
+```{R}
+Africa.American <- da31721.0001 %>%
+  filter(RACE == "(1) African American (Black)")
+Caucasian <- da31721.0001 %>%
+  filter(RACE == "(2) White (Caucasian)")
+Hispanic.Latin <- da31721.0001 %>%
+  filter(RACE == "(3) Hispanic or Latino/Latina")
+Native.American <- da31721.0001 %>%
+  filter(RACE == "(4) Native American/American Indian")
+temp <- Africa.American %>%
+  filter(Q88 == "(1) Yes")
+n1 <- nrow(temp)
+n2 <- nrow(Africa.American) - n1
+temp <- Caucasian %>%
+  filter(Q88 == "(1) Yes")
+n3 <- nrow(temp)
+n4 <- nrow(Caucasian) - n3
+temp <- Hispanic.Latin %>%
+  filter(Q88 == "(1) Yes")
+n5 <- nrow(temp)
+n6 <- nrow(Hispanic.Latin) - n5
+temp <- Native.American %>%
+  filter(Q88 == "(1) Yes")
+n7 <- nrow(temp)
+n8 <- nrow(Native.American) - n7
+temp <- data.frame('race' =   c('Africa American','Caucasian',
+                                  'Hispanic/Latin','Native American',
+                                'Africa American','Caucasian',
+                                  'Hispanic/Latin','Native American'),
+                   'number' = c(n1,n3,n5,n7,
+                                n2,n4,n6,n8),
+                   'type' = c('homeless','homeless',
+                              'homeless','homeless',
+                              'non-homeless','non-homeless',
+                              'non-homeless','non-homeless'))
+ggplot(temp, aes(x = race, y = number, fill = type)) +
+  geom_bar(stat="identity",position=position_dodge())+
+  scale_fill_brewer(palette="Paired")+
+  theme_minimal() + 
+  scale_y_continuous(labels=percent_format()) + 
+  labs(y = "Percent", fill="Ever been homeless") + 
+   theme(
+    axis.text.x = element_text(
+      angle = -80,
+      vjust = -0.4
+    ))
+```
+
+5.
+```{R}
+suicide <- da31721.0001 %>%
+  filter(Q133 == "(1) Yes")
+#total proportion
+round(nrow(suicide)/nrow(da31721.0001),3)
+#for transgender
+round(nrow(suicide)/(nrow(transman) + nrow(transwoman)),3)
+very <- suicide %>%
+  filter(Q119 == '(4) Very supportive')
+some <- suicide %>%
+  filter(Q119 == '(3) Somewhat supportive')
+not <- suicide %>%
+  filter(Q119 == '(2) Not very supportive')
+not.at.all <- suicide %>%
+  filter(Q119 == '(1) Not at all supportive')
+temp <- data.frame('type' = c('Very supportive','Somewhat supportive',
+                              'Not very supportive','Not at all supportive'),
+                   'number' = c(nrow(very),nrow(some),nrow(not),nrow(not.at.all))) 
+ggplot(temp,aes(x = type, y = number)) + 
+  geom_bar(stat = "identity", aes(fill = type)) + 
+  scale_fill_brewer(palette="Dark2") + 
+  scale_y_continuous(labels=percent_format()) + 
+  labs(y = "Percent", fill="Familial Support") + 
+   theme(
+    axis.text.x = element_text(
+      angle = -80
+    ))
+```

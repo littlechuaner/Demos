@@ -1,0 +1,346 @@
+---
+title: "Sales, Polynomial regression, LOESS"
+author: "Brian Macdonald"
+date: "March 4, 2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(FNN)
+```
+
+Recall the sales data that we used previously when discussing nearest neighbors. 
+```{r}
+d = readRDS('/Users/chuan/Desktop/WorkingOn/tickets.sold.by.days.left.until.game.rds')
+d = filter(d, plan.type=='Singles')
+head(d,2)
+```
+
+We noted the relationship between tickets sold 30 days before the game and final tickets sold. 
+```{r}
+d = d[d$days.left==30,]
+d1 = d
+ggplot(d, aes(x=cumul, y=final))+ geom_point()
+```
+
+We then built a model to predict final tickets sold, using the number of tickets sold 30 days before the event. Let's do that again, but use cross-validation to choose $k$, so that we have more of an apples to apples comparison. 
+
+First, we'll prepare the data to be used by all of the methods we'll be using in this lab. 
+
+```{r}
+x=as.data.frame(d[, 'cumul'])
+y=d$final
+set.seed(123)
+train.rows = sample(1:nrow(d), size=nrow(d)*.8)  ## randomly sample 80% of the rows of d
+test.rows  = which(!1:nrow(d) %in% train.rows)
+d.train = d[train.rows, ]
+d.test  = d[test.rows, ]
+
+## choose folds
+K=5
+folds = rep(1:K, length.out=nrow(d.train))
+d.train$fold = sample(folds, nrow(d.train), replace=F)
+
+## split x and y
+x.train = as.data.frame(d.train[, 'cumul'])
+x.test  = as.data.frame(d.test[, 'cumul'])
+y.train = d.train$final
+y.test  = d.test$final
+
+```
+
+Now we'll use cross-validation for choosing $k$ in nearest neighbors. 
+
+```{r}
+## create column names for nn predictions
+ks=seq(from=1, to=101, by=2)
+cols = paste0('k', round(ks,3)) 
+d[,cols] = NA ## initiate blank columns
+
+for (j in 1:K){
+  
+  ## train and test rows
+  in.rows  = d.train$fold!=j
+  val.rows = d.train$fold==j
+  
+  ## fit model and make predictions for every k
+  for(k in ks){
+  
+    ## fit model on in.rows, make predictions for val.rows
+    nn = knn.reg(train=as.data.frame(x.train[in.rows,]),
+                 test =as.data.frame(x.train[val.rows,]), 
+                 y=y.train[in.rows], k=k)
+    
+    ## put predictions into the val.rows of the appropriate column of d, 
+    col = paste0('k', k)
+    d.train[val.rows,col] = nn$pred
+  }
+  
+}
+
+## MSE for all k's
+squared.errors.all.k = (d.train$final - d.train[,cols])^2
+mse.all.k = colMeans(squared.errors.all.k)
+which.min(mse.all.k)
+min(mse.all.k, na.rm=T)
+
+```
+
+The best MSE we get for nearest neighbors is 711544.7 at k=7. Let's plot the MSE by k. 
+
+```{r}
+df1 = as.data.frame(mse.all.k)
+df1$k = as.numeric(gsub('k', '', rownames(df1)))
+colnames(df1) = c('mse', 'k')
+head(df1)
+```
+
+```{r}
+ggplot(df1, aes(x=k, y=mse))+geom_point()+geom_line()  
+```
+
+We now fit the model using all of the training data (recall that in the loop, we only fit the model using 4/5 of the training data each time). We do this for k=1, k=7, and k=51. For each model we'll make predictions for every value of cumul between 1 and 5000
+
+```{r}
+preds1 = data.frame(cumul=1:6000)
+nn1  = knn.reg(train=x.train, test = preds1, y=y.train, k=1 ) 
+nn7  = knn.reg(train=x.train, test = preds1, y=y.train, k=7 )
+nn51 = knn.reg(train=x.train, test = preds1, y=y.train, k=51)
+```
+
+We'll save the predictions in the columns of preds. 
+```{r}
+preds1$nn1  = nn1$pred
+preds1$nn7  = nn7$pred
+preds1$nn51 = nn51$pred
+head(preds1)
+```
+
+
+Let's now plot the predictions for k=1, k=7, k=51 in different colors. 
+
+```{r}
+ggplot() + 
+  geom_point(data=d.train, aes(x=cumul, y=final), alpha=0.5, size=1)+
+  geom_line(data=preds1, aes(x=cumul , y=nn1 ), color='black', alpha=0.3, size=1.5)+
+  geom_line(data=preds1, aes(x=cumul , y=nn7 ), color='blue' , alpha=0.3, size=1.5)+
+  geom_line(data=preds1, aes(x=cumul , y=nn51), color='red'  , alpha=0.3, size=1.5)
+  
+```
+
+k=7 looks to be a happy medium between the flexibility of k=1 and the smoothness of k=51. 
+
+Now we will use polynomial regression and LOESS and see if we can do better.  We'll start with polynomial regression. 
+
+## Part 1: Polynomial regression
+ 
+
+#### 1. Use cross-validation to select the best degree d to use for a polynomial regression model using the training data. 
+Use the same training set, test set and folds as before.  Do not redefine the training set, test set, and folds here. 
+
+Try all degrees between 1 to 10. Note that you will need a nested for-loop, one for the folds, and one for the degree. 
+```{r}
+ds = seq(from=1, to=10, by=1)
+cols = paste0('d', round(ds,2))
+d[,cols] = NA ## initiate blank columns
+for (j in 1:K){
+  
+  ## train and test rows
+  in.rows  = d.train$fold!=j
+  val.rows = d.train$fold==j
+  
+  ## fit model and make predictions for every k
+  for(d in ds){
+    ## fit model on in.rows, make predictions for val.rows
+    x <- x.train[in.rows,]
+    y <- y.train[in.rows]
+    model <- lm(y ~ poly(x,d,raw = TRUE))
+    ## put predictions into the val.rows of the appropriate column of d, 
+    col = paste0('d', d)
+    d.train[val.rows,col] = predict(model, data.frame(x=x.train[val.rows,]))
+  }
+}
+## MSE for all k's
+squared.errors.all.d = (d.train$final - d.train[,cols])^2
+mse.all.d = colMeans(squared.errors.all.d)
+which.min(mse.all.d)
+min(mse.all.d, na.rm=T)
+```
+
+#### 2. Plot the MSE vs degree. Use a log scale for the y-axis. 
+```{r}
+df2 = as.data.frame(mse.all.d)
+df2$d = as.numeric(gsub('d', '', rownames(df2)))
+colnames(df2) = c('mse', 'd')
+df2 = mutate(df2,lgmse = log(mse))
+ggplot(df2, aes(x=d, y=lgmse))+geom_point()+geom_line()
+```
+
+#### 3. Fit a model for deg=1,2,7 using all of the training data. 
+```{r}
+x = x.train[,1]
+y = y.train
+m1 = lm(y~poly(x,1,raw = T))
+m2 = lm(y~poly(x,2,raw = T))
+m7 = lm(y~poly(x,7,raw = T))
+```
+
+#### 4. Make predictions for each value of `cumul` between 1 and 6000
+```{r}
+preds2 = data.frame(cumul=1:6000)
+preds2$d1  = predict(m1, data.frame(x=preds2$cumul))
+preds2$d2  = predict(m2, data.frame(x=preds2$cumul))
+preds2$d7 = predict(m7, data.frame(x=preds2$cumul))
+```
+
+#### 5. Plot the predictions for degree 1, 2, and 7 in different colors, along with the data points in the training set.
+```{r}
+ggplot() + 
+  geom_point(data=d.train, aes(x=cumul, y=final), alpha=0.5, size=1)+
+  geom_line(data=preds2, aes(x=cumul , y=d1 ), color='black', alpha=0.3, size=1.5)+
+  geom_line(data=preds2, aes(x=cumul , y=d2 ), color='blue' , alpha=0.3, size=1.5)+
+  geom_line(data=preds2, aes(x=cumul , y=d7), color='red'  , alpha=0.3, size=1.5)
+```
+
+
+#### 6. What are the benefits and drawbacks of the degree 1, 2, and 7 polynomial models?
+These Polynomial models can fit a wide range of curvature, and thet can provide a good approximation of the relationship. The drawbacks are that they need extra calculation and have higher risk of over-fitting.
+
+#### 7. Which degree would you choose, and why? 
+I will choose degree of 2. The cross validation MSE for degree of 2 is very close to degree of 7, which is the lowest, and from the prediction plot, it is obvious that degree of 7 is not suitable because it produces negative outputs.
+
+## Part 2: LOESS
+
+#### 1. Use cross-validation to select the best span to use for a LOESS regression model with the training data. 
+
+Try all spans 0.1, 0.2, ... 1.0. Note that you will need a nested for-loop, one for the folds, and one for the spans.  
+
+```{r}
+ss=seq(from=0.1, to=1.0, by=0.1)
+cols = paste0('s', round(ss,3))
+d1[,cols] = NA ## initiate blank columns
+for (j in 1:K){
+  
+  ## train and test rows
+  in.rows  = d.train$fold!=j
+  val.rows = d.train$fold==j
+  
+  ## fit model and make predictions for every k
+  for(s in ss){
+    ## fit model on in.rows, make predictions for val.rows
+    x <- x.train[in.rows,]
+    y <- y.train[in.rows]
+    df <- as.data.frame(x=x,y=y)
+    model <- loess(y ~ x,df,span = s)
+    ## put predictions into the val.rows of the appropriate column of d, 
+    col = paste0('s', s)
+    d.train[val.rows,col] = predict(model, data.frame(x=x.train[val.rows,]))
+  }
+}
+## MSE for all k's
+squared.errors.all.s = (d.train$final - d.train[,cols])^2
+squared.errors.all.s = na.omit(squared.errors.all.s)
+mse.all.s = colMeans(squared.errors.all.s)
+which.min(mse.all.s)
+min(mse.all.s, na.rm=T)
+```
+
+
+#### 2. Plot the MSE vs span. 
+```{r}
+df3 = as.data.frame(mse.all.s)
+df3$s = as.numeric(gsub('s', '', rownames(df3)))
+colnames(df3) = c('mse', 's')
+ggplot(df3, aes(x=s, y=mse))+geom_point()+geom_line()
+```
+
+
+#### 3. Fit a model for span=0.1, 0.5, 1 using all of the training data. 
+```{r}
+x = x.train[,1]
+y = y.train
+df = as.data.frame(x=x,y=y)
+s_0.1 = loess(y~x,df,span = 0.1)
+s_0.5 = loess(y~x,df,span = 0.5)
+s_1 = loess(y~x,df,span = 1)
+```
+
+#### 4. Make predictions for each value of cumul between 1 and 6000
+```{r}
+preds3 = data.frame(cumul=1:6000)
+preds3$s0.1  = predict(s_0.1, data.frame(x=preds3$cumul))
+preds3$s0.5  = predict(s_0.5, data.frame(x=preds3$cumul))
+preds3$s1 = predict(s_1, data.frame(x=preds3$cumul))
+```
+
+#### 5. Plot the predictions for span 0.1, 0.5, and 1.0 in different colors, along with the data points in the training set.
+```{r}
+ggplot() + 
+  geom_point(data=d.train, aes(x=cumul, y=final), alpha=0.5, size=1)+
+  geom_line(data=preds3, aes(x=cumul , y=s0.1 ), color='black', alpha=0.3, size=1.5)+
+  geom_line(data=preds3, aes(x=cumul , y=s0.5 ), color='blue' , alpha=0.3, size=1.5)+
+  geom_line(data=preds3, aes(x=cumul , y=s1), color='red'  , alpha=0.3, size=1.5) 
+```
+
+#### 6. What are the benefits and drawback of each? 
+LOESS is very flexible, making it ideal for modeling complex processes for which no theoretical models exist. Disadvantage of LOESS is the fact that it does not produce a regression function that is easily represented by a mathematical formula, the choice of span is merely based on the data.
+
+#### 7. Which loess model would you choose, and why?
+I will choose the model with span of 1 because the mse is significantly lower than other models.
+
+
+## Part 3: Comparing nearest neighbors, polynomial regression and LOESS
+
+#### 1. Plot along with the data points in the training set along with the predictions you found for the following models.
+
+- nearest neighbors with k=7
+- polynomial with degree 2
+- polynomial with degree 7
+- LOESS with span=1
+
+```{r}
+ggplot() + 
+  geom_point(data=d.train, aes(x=cumul, y=final), alpha=0.5, size=1)+
+  geom_line(data=preds1, aes(x=cumul , y=nn7 ), color='black', alpha=0.3, size=1.5)+
+  geom_line(data=preds2, aes(x=cumul , y=d2 ), color='blue' , alpha=0.3, size=1.5)+
+  geom_line(data=preds2, aes(x=cumul , y=d7), color='red'  , alpha=0.3, size=1.5)+
+  geom_line(data=preds3, aes(x=cumul , y=s1), color='green'  , alpha=0.3, size=1.5)
+```
+
+#### 2. List the CV MSE that you found earlier for those four models as well. 
+```{r}
+list(df1[4,],df2[2,],df2[7,],df3[10,])
+```
+
+#### 3. Which model would you use going forward? Why? 
+I will use Polynomial model with degree of 7 because its in-sample mse is the lowest altough the prediction is not reasonable. This can be further validated by using the test data set.
+
+## Part 4: Test data
+
+#### 1. Make predictions for the test data using those three models. 
+```{r}
+preds4 = data.frame(cumul=x.test)
+preds4$nn7 = knn.reg(train = x.train, test = preds4, y= y.train,k=7)$pred
+preds4$s1 = predict(s_1, data.frame(x=preds4$d.test....cumul..))
+preds4$d2  = predict(m2, data.frame(x=preds4$d.test....cumul..))
+preds4$d7 = predict(m7, data.frame(x=preds4$d.test....cumul..))
+```
+
+#### 2. Find the test MSE for each of the three models. 
+```{r}
+preds4 <- preds4 %>%
+  mutate(tmse.n77 = mean((y.test - nn7)^2),
+         tmse.d2 = mean((y.test - d2)^2),
+         tmse.d7 = mean((y.test - d7)^2),
+         tmse.s1 = mean((y.test - s1)^2))
+preds4[1,c(6:9)]
+```
+
+#### 3. Were the CV MSE results for the 3 models reasonable approximations of the test MSE? Discuss.
+From the results, we can find the model with lowest CV MSE, which is polynomial model with degree of 7, has the lowest test mse. This is an indication that this model is the best one of the four to predict the data.
+
+

@@ -1,0 +1,39 @@
+---
+title: "Homework"
+author: "Zero"
+date: "2/26/2019"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+---
+1.The PCA is shown below, from the barplot, we can find the first three factors can explain more than 90% of the variances, so the conclusion is to only include these three compornants as our features.
+```{R}
+library("FactoMineR")
+library("factoextra")
+data <- read.csv("/Users/chuan/Desktop/WorkingOn/Table36.csv")
+res.pca <- PCA(data, graph = FALSE)
+#get eigen values.
+eig.val <- get_eigenvalue(res.pca)
+eig.val
+#plot
+fviz_eig(res.pca, addlabels = TRUE, ylim = c(0, 80))
+```
+
+2.The first two factor loadings are shown below.
+```{R}
+df <- read.csv("/Users/chuan/Desktop/WorkingOn/Table6.9.csv")
+#Use R
+df.scaled <- scale(df, center = TRUE, scale = TRUE)
+#Correlation matrix
+df.cor <- cor(df.scaled)
+round(df.cor, 2)
+#Calculate C1 & D1
+c1 <- as.data.frame(eigen(df.cor)$'vectors')
+c1 <- c1[1:2]
+d1 <- cor(c1)
+c1
+d1
+#lambda
+as.matrix(c1) %*% sqrt(d1)
+```
